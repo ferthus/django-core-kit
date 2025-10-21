@@ -1,0 +1,75 @@
+#[tool.black]
+#line-length = 88
+#target-version = ['py38', 'py39', 'py310']
+
+#[tool.isort]
+#profile = "black"
+#line_length = 88
+#multi_line_output = 3
+#
+#[tool.flake8]
+#max-line-length = 88
+#exclude = [".git", "__pycache__", "migrations", "venv"]
+#ignore = ["E203", "W503"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+package-mode = false
+name = "django-core-kit"
+version = "0.1.0"
+description = "Django Core Kit is a base template and toolkit designed to simplify the creation and initialization of Django projects from scratch."
+authors = ["Fernando Rodriguez <ferthus@live.com>"]
+license = "Apache License 2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.12,<3.13"
+django = "==5.2.7"
+django-environ = "*"
+psycopg = { extras = ["binary"], version = "^3.2" }
+redis = "*"
+hiredis = "*"
+django-allauth = "*"
+django-tables2 = "*"
+django-htmx = "*"
+django-filter = "*"
+
+[tool.poetry.group.dev.dependencies]
+flake8 = "*"
+pylint = "*"
+pylint-django = "*"
+djlint = "*"
+pre-commit = "*"
+django-debug-toolbar = "*"
+faker = "*"
+django-extensions = "*"
+coverage = "*"
+
+
+[tool.coverage.run]
+branch = true
+#source = ["myapp", "another_app"]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "BaseProject/settings/*",
+    "BaseProject/core/settings.py",
+    "BaseProject/core/urls.py"
+]
+
+[tool.coverage.report]
+#fail_under = 80
+show_missing = true
+
+#[tool.pylint]
+#max-line-length = 88
+#disable = ["C0114", "C0115", "C0116"]  # Desactiva avisos de docstrings
+#load-plugins = ["pylint_django"]
+#django-settings-module = "myproject.settings"
+#
+#[tool.djlint]
+#profile = "django"
+#ignore = ["H006", "H030"]

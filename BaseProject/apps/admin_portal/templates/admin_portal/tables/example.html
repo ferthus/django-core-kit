@@ -1,0 +1,35 @@
+
+{% load django_htmx %}
+{% load i18n %}
+
+<!doctype html>
+<html>
+    <head>
+        <title>List of invoices</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
+        {% htmx_script %}
+    </head>
+    <body>
+        <div class="" style="margin: 5%;">
+          <input type="search"
+                 name="q"
+                 id="quicksearch"
+                 class="form-control"
+                 placeholder="{% trans "Quick search" %}"
+                 hx-target="#object_list"
+                 hx-get="{{ request.get_full_path }}"
+                 hx-trigger="keyup changed delay:500ms, search"
+          >
+          ** {{ filter.form.errors }} **
+          {% if filter_form %}
+            {{ filter.form }}
+          {% endif %}
+
+          <div id="object_list">
+            {% include 'htmx/table.html' %}
+          </div>
+
+        </div>
+
+    </body>
+</html>
