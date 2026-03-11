@@ -34,29 +34,32 @@ class BaseSettings:
         else:
             env_path = None
 
-        environ.Env.read_env(env_path)  # reading .env file and set user environment variables.
-        env = environ.Env() # instance the environ object and read from user environment variables.
-        self.env = env
+        if os.environ['DJANGO_SECRETS_BACKEND'] == 'aws':
+            self.load_env_aws(env_path)
+        elif os.environ['DJANGO_SECRETS_BACKEND'] == 'file':
+            self.load_env_file(env_path)
 
-        self.AUTH_USER_MODEL = env.str('AUTH_USER_MODEL', 'core_user.User')
-        self.SECRET_KEY = env.str('SECRET_KEY')
-        self.SITE_ID = env.int('SITE_ID', 1)
+        self.env = environ.Env() # instance the environ object and read from user environment variables.
+
+        self.AUTH_USER_MODEL = self.env.str('AUTH_USER_MODEL', 'core_user.User')
+        self.SECRET_KEY = self.env.str('SECRET_KEY')
+        self.SITE_ID = self.env.int('SITE_ID', 1)
         self.ROOT_URLCONF = 'BaseProject.core.urls'
 
         # Debug settings
-        self.DEBUG = env.bool('DEBUG')
+        self.DEBUG = self.env.bool('DEBUG')
         self.DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
         self.WSGI_APPLICATION = 'BaseProject.core.wsgi.application'
 
         # Admin Vars
-        self.ADMIN_SITE_HEADER = env.str('ADMIN_SITE_HEADER', "BaseProject")
-        self.ADMIN_SITE_TITLE = env.str('ADMIN_SITE_TITLE', "Base Project")
-        self.ADMIN_SITE_INDEX_TITLE = env.str('ADMIN_SITE_INDEX_TITLE', "Base Project Index")
+        self.ADMIN_SITE_HEADER = self.env.str('ADMIN_SITE_HEADER', "BaseProject")
+        self.ADMIN_SITE_TITLE = self.env.str('ADMIN_SITE_TITLE', "Base Project")
+        self.ADMIN_SITE_INDEX_TITLE = self.env.str('ADMIN_SITE_INDEX_TITLE', "Base Project Index")
         self.SITE_URL = '/'  # ToDo => Cambiar por reverse resolution url
 
         # self.DEFAULT_FROM_EMAIL = env.str('DEFAULT_FROM_EMAIL')
         # settings EMAIL
-        for _key, _val in env.email_url().items():
+        for _key, _val in self.env.email_url().items():
             setattr(self, _key, _val)
 
         self.FIXTURE_DIRS = [self.BASE_DIR / '.config_project/DB_Fixtures']
@@ -154,11 +157,11 @@ class BaseSettings:
             }
         }
 
-        self.TIME_ZONE = env.str('TIME_ZONE','America/Mexico_City')
-        self.USE_TZ = env.bool('USE_TZ', True)
-        self.LANGUAGE_CODE = env.str('LANGUAGE_CODE', 'es-mx')
-        self.USE_I18N = env.bool('USE_I18N', True)
-        self.USE_L10N = env.bool('USE_L10N', True)
+        self.TIME_ZONE = self.env.str('TIME_ZONE','America/Mexico_City')
+        self.USE_TZ = self.env.bool('USE_TZ', True)
+        self.LANGUAGE_CODE = self.env.str('LANGUAGE_CODE', 'es-mx')
+        self.USE_I18N = self.env.bool('USE_I18N', True)
+        self.USE_L10N = self.env.bool('USE_L10N', True)
         self.LOCALE_PATHS = [
             self.BASE_DIR / 'BaseProject/locale',
         ]
@@ -184,9 +187,9 @@ class BaseSettings:
         ]
 
         # Security & X-Frame-Options Middleware
-        self.SECURE_BROWSER_XSS_FILTER = env.bool('SECURE_BROWSER_XSS_FILTER', True)
-        self.SECURE_CONTENT_TYPE_NOSNIFF = env.bool('SECURE_CONTENT_TYPE_NOSNIFF', True)
-        self.X_FRAME_OPTIONS = env.str('X_FRAME_OPTIONS', 'DENY')
+        self.SECURE_BROWSER_XSS_FILTER = self.env.bool('SECURE_BROWSER_XSS_FILTER', True)
+        self.SECURE_CONTENT_TYPE_NOSNIFF = self.env.bool('SECURE_CONTENT_TYPE_NOSNIFF', True)
+        self.X_FRAME_OPTIONS = self.env.str('X_FRAME_OPTIONS', 'DENY')
 
         self.CORS_ALLOW_HEADERS = (
             'x-requested-with',
@@ -200,8 +203,8 @@ class BaseSettings:
 
         # taggit
 
-        self.ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
-        self.INTERNAL_IPS = env.list('INTERNAL_IPS', default='127.0.0.1,')
+        self.ALLOWED_HOSTS = self.env.list('ALLOWED_HOSTS')
+        self.INTERNAL_IPS = self.env.list('INTERNAL_IPS', default='127.0.0.1,')
 
         self.IGNORABLE_404_URLS = [
             re.compile(r'\.(php|cgi)$'),
@@ -232,12 +235,12 @@ class BaseSettings:
             },
             'handlers': {
                 'console': {
-                    'level': env('LOG_CONSOLE_LEVEL'),
+                    'level': self.env.str('LOG_CONSOLE_LEVEL', "INFO"),
                     'class': 'logging.StreamHandler',
                     'formatter': 'default'
                 },
                 'debug': {
-                    'level': env('LOG_FILE_DJANGO_LEVEL'),
+                    'level': self.env.str('LOG_FILE_DJANGO_LEVEL', "WARNING"),
                     'class': 'logging.handlers.RotatingFileHandler',
                     'filename': self.LOGS_ROOT / 'django/debug.log',
                     'formatter': 'default',
@@ -280,7 +283,6 @@ class BaseSettings:
     def ADMINS(self):  # noqa
         admins_emails = self.env.str('ADMINS', '[[]]')
         return list(email for email in json.loads(admins_emails))
-
 
     @property
     def MANAGERS(self):  # noqa
@@ -373,3 +375,36 @@ class BaseSettings:
                     value = value.fget(self)
                 setattr(module, member, value)
 
+    def load_env_file(self, env_path: str):
+        environ.Env.read_env(env_path)
+
+    def load_env_aws(self, env_path: str):
+        import boto3
+        from botocore.exceptions import ClientError
+
+        environ.Env.read_env(env_path)
+        env = environ.Env()
+
+        AWS_ACCESS_KEY_ID = env.str('AWS_ACCESS_KEY_ID')
+        AWS_SECRET_ACCESS_KEY = env.str('AWS_SECRET_ACCESS_KEY')
+        AWS_SECRET_NAME = env.str('AWS_SECRET_NAME')
+        AWS_REGION_NAME = env.str('AWS_REGION_NAME')
+
+        session = boto3.session.Session()
+        client = session.client(
+            service_name="secretsmanager",
+            region_name=AWS_REGION_NAME,
+            aws_access_key_id=AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        )
+        try:
+            get_secret_value_response = client.get_secret_value(
+                SecretId=AWS_SECRET_NAME
+            )
+        except ClientError as e:
+            raise e
+
+        secrets = get_secret_value_response['SecretString']
+        variables = json.loads(secrets)
+        for key, value in variables.items():
+            os.environ[key] = str(value)

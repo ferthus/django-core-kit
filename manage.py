@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 
-confs= None
 DIR_PATH_FILE = Path(__file__).resolve().parent
 with open(DIR_PATH_FILE / '.config_project/conf.json') as json_file:
     confs = json.loads(json_file.read())
@@ -14,6 +13,7 @@ with open(DIR_PATH_FILE / '.config_project/conf.json') as json_file:
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', confs['generals']['settings'])
+    os.environ.setdefault('DJANGO_SECRETS_BACKEND', confs['generals']['secrets_backend'])
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
