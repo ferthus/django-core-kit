@@ -235,22 +235,16 @@ class BaseSettings:
             },
             'handlers': {
                 'console': {
-                    'level': self.env.str('LOG_CONSOLE_LEVEL', "INFO"),
+                    'level': 'DEBUG',
                     'class': 'logging.StreamHandler',
+                    'stream': 'ext://sys.stdout',
                     'formatter': 'default'
                 },
-                'debug': {
-                    'level': self.env.str('LOG_FILE_DJANGO_LEVEL', "WARNING"),
-                    'class': 'logging.handlers.RotatingFileHandler',
-                    'filename': self.LOGS_ROOT / 'django/debug.log',
-                    'formatter': 'default',
-                },
-                'mail_admins': {
+                'errors': {
                     'level': 'ERROR',
-                    'filters': ['require_debug_false'],
-                    'formatter': 'default',
-                    'class': 'django.utils.log.AdminEmailHandler',
-                    'include_html': True,
+                    'class': 'logging.StreamHandler',
+                    'stream': 'ext://sys.stderr',
+                    'formatter': 'default'
                 },
                 'null': {
                     'class': 'logging.NullHandler',
@@ -258,17 +252,17 @@ class BaseSettings:
             },
             'loggers': {
                 '': {
-                    'handlers': ['debug', 'console', 'mail_admins'],
-                    'level': 'DEBUG',
+                    'handlers': ['console', 'errors'],
+                    'level': 'INFO',
                 },
                 'django': {
-                    'handlers': ['debug', 'console', 'mail_admins'],
-                    'level': 'DEBUG',
+                    'handlers': ['console', 'errors'],
+                    'level': self.env.str('LOG_DJANGO_LEVEL', "INFO"),
                     'propagate': False,
                 },
                 'BaseProject': {
-                    'handlers': ['debug', 'console', 'mail_admins'],
-                    'level': 'DEBUG',
+                    'handlers': ['console', 'errors'],
+                    'level': self.env.str('LOG_APP_LEVEL', "DEBUG"),
                     'propagate': False,
                 },
                 'django.security.DisallowedHost': {
