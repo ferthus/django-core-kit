@@ -1,17 +1,3 @@
-#[tool.black]
-#line-length = 88
-#target-version = ['py38', 'py39', 'py310']
-
-#[tool.isort]
-#profile = "black"
-#line_length = 88
-#multi_line_output = 3
-#
-#[tool.flake8]
-#max-line-length = 88
-#exclude = [".git", "__pycache__", "migrations", "venv"]
-#ignore = ["E203", "W503"]
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
@@ -48,10 +34,13 @@ faker = "*"
 django-extensions = "*"
 coverage = "*"
 
+[tool.poetry.group.test.dependencies]
+pytest = "*"
+pytest-django = "*"
+pytest-cov = "*"
 
 [tool.coverage.run]
 branch = true
-#source = ["myapp", "another_app"]
 omit = [
     "*/migrations/*",
     "*/tests/*",
@@ -59,17 +48,3 @@ omit = [
     "BaseProject/core/settings.py",
     "BaseProject/core/urls.py"
 ]
-
-[tool.coverage.report]
-#fail_under = 80
-show_missing = true
-
-#[tool.pylint]
-#max-line-length = 88
-#disable = ["C0114", "C0115", "C0116"]  # Desactiva avisos de docstrings
-#load-plugins = ["pylint_django"]
-#django-settings-module = "myproject.settings"
-#
-#[tool.djlint]
-#profile = "django"
-#ignore = ["H006", "H030"]
