@@ -1,5 +1,5 @@
 """
-ASGI config for BaseProject.core.
+ASGI config for project project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 
@@ -8,16 +8,9 @@ https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
 """
 
 import os
-import json
 
 from django.core.asgi import get_asgi_application
-from django.conf import settings
 
-
-with open(settings.BASE_DIR / '.config_project/conf.json') as json_file:
-  confs = json.loads(json_file.read())
-
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', confs['generals']['settings'])
-os.environ.setdefault('DJANGO_SECRETS_BACKEND', confs['generals']['secrets_backend'])
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'project.settings')
 
 application = get_asgi_application()

@@ -26,20 +26,18 @@ class BaseSettings:
 
     def __init__(self, *args, **kwargs):
         # Main Path
+        self.AWS_ACCESS_KEY_ID = None
+        self.AWS_SECRET_ACCESS_KEY = None
+        self.AWS_SECRET_NAME = None
+        self.AWS_REGION_NAME = None
         self.BASE_DIR = Path(__file__).resolve().parent.parent.parent
-        if os.environ['DJANGO_SETTINGS_MODULE'] == 'BaseProject.settings.dev':
-            env_path = self.BASE_DIR / '.config_project/environ/dev/.env'
-        elif os.environ['DJANGO_SETTINGS_MODULE'] == 'BaseProject.settings.production':
-            env_path = self.BASE_DIR / '.config_project/environ/production/.env'
-        else:
-            env_path = None
-
-        if os.environ['DJANGO_SECRETS_BACKEND'] == 'aws':
-            self.load_env_aws(env_path)
-        elif os.environ['DJANGO_SECRETS_BACKEND'] == 'file':
-            self.load_env_file(env_path)
 
         self.env = environ.Env() # instance the environ object and read from user environment variables.
+        self.DJANGO_SECRETS_BACKEND = self.env.str('DJANGO_SECRETS_BACKEND')
+        self.DJANGO_STORAGE_BACKEND = self.env.str('DJANGO_STORAGE_BACKEND')
+
+        if self.DJANGO_SECRETS_BACKEND == 'aws':
+            self.load_env_aws()
 
         self.AUTH_USER_MODEL = self.env.str('AUTH_USER_MODEL', 'core_user.User')
         self.SECRET_KEY = self.env.str('SECRET_KEY')
@@ -57,7 +55,6 @@ class BaseSettings:
         self.ADMIN_SITE_INDEX_TITLE = self.env.str('ADMIN_SITE_INDEX_TITLE', "Base Project Index")
         self.SITE_URL = '/'  # ToDo => Cambiar por reverse resolution url
 
-        # self.DEFAULT_FROM_EMAIL = env.str('DEFAULT_FROM_EMAIL')
         # settings EMAIL
         for _key, _val in self.env.email_url().items():
             setattr(self, _key, _val)
@@ -78,21 +75,6 @@ class BaseSettings:
             # 'corsheaders.middleware.CorsMiddleware',
         ]
 
-        # Assets and Media
-        # if env.bool('ENABLE_REMOTE_STORAGE'):
-        #     self.AWS_STATIC_LOCATION = 'static'
-        #     self.AWS_MEDIA_LOCATION = 'media'
-        #     self.AWS_S3_OBJECT_PARAMETERS = {
-        #         'CacheControl': 'max-age=86400',
-        #     }
-        #     bucket_name = env.str('BUCKET_NAME')
-        #     self.AWS_STORAGE_BUCKET_NAME = F'{bucket_name}-bucket-service'
-        #     self.AWS_S3_CUSTOM_DOMAIN = '{0}.s3.amazonaws.com'.format(self.AWS_STORAGE_BUCKET_NAME)
-        #
-        #     self.STATICFILES_STORAGE = 'BaseProject.core.custom_storages.CustomStaticStorage'
-        #     self.DEFAULT_FILE_STORAGE = 'BaseProject.core.custom_storages.CustomMediaStorage'
-        #     self.STATIC_URL = 'https://{0}/{1}/'.format(self.AWS_S3_CUSTOM_DOMAIN, self.AWS_STATIC_LOCATION)
-        # else:
         self.STATIC_URL = '/static/'
         self.STATIC_ROOT = self.BASE_DIR / '.static'
 
@@ -369,31 +351,25 @@ class BaseSettings:
                     value = value.fget(self)
                 setattr(module, member, value)
 
-    def load_env_file(self, env_path: str):
-        environ.Env.read_env(env_path)
-
-    def load_env_aws(self, env_path: str):
+    def load_env_aws(self):
         import boto3
         from botocore.exceptions import ClientError
 
-        environ.Env.read_env(env_path)
-        env = environ.Env()
-
-        AWS_ACCESS_KEY_ID = env.str('AWS_ACCESS_KEY_ID')
-        AWS_SECRET_ACCESS_KEY = env.str('AWS_SECRET_ACCESS_KEY')
-        AWS_SECRET_NAME = env.str('AWS_SECRET_NAME')
-        AWS_REGION_NAME = env.str('AWS_REGION_NAME')
+        self.AWS_ACCESS_KEY_ID = self.env.str('AWS_ACCESS_KEY_ID')
+        self.AWS_SECRET_ACCESS_KEY = self.env.str('AWS_SECRET_ACCESS_KEY')
+        self.AWS_SECRET_NAME = self.env.str('AWS_SECRET_NAME')
+        self.AWS_REGION_NAME = self.env.str('AWS_REGION_NAME')
 
         session = boto3.session.Session()
         client = session.client(
             service_name="secretsmanager",
-            region_name=AWS_REGION_NAME,
-            aws_access_key_id=AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+            region_name=self.AWS_REGION_NAME,
+            aws_access_key_id=self.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=self.AWS_SECRET_ACCESS_KEY,
         )
         try:
             get_secret_value_response = client.get_secret_value(
-                SecretId=AWS_SECRET_NAME
+                SecretId=self.AWS_SECRET_NAME
             )
         except ClientError as e:
             raise e
