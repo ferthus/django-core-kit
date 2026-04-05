@@ -2,3 +2,4 @@
 .static
 .media
 .logs
+.config_project/*

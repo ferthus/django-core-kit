@@ -7,14 +7,15 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
     curl \
-    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /var/lib/apt/lists/*
 
 # ====> DEPENDENCIES <=== #
 FROM base AS deps
-RUN pip install poetry
-RUN poetry config virtualenvs.in-project true
 COPY pyproject.toml poetry.lock* ./
-RUN poetry install --no-dev --no-interaction --no-ansi
+RUN pip install poetry
+ENV POETRY_VIRTUALENVS_IN_PROJECT=true
+RUN poetry config virtualenvs.in-project true
+RUN poetry install --only main --no-interaction --no-ansi
 
 
 # ====> DEVELOPMENT <=== #
@@ -31,7 +32,7 @@ FROM base AS test
 RUN pip install poetry
 COPY pyproject.toml poetry.lock* ./
 RUN poetry config virtualenvs.in-project true
-RUN poetry install --with test --no-interaction --no-ansi
+RUN poetry install --with dev,test --no-interaction --no-ansi
 COPY . .
 CMD ["/app/.venv/bin/pytest"]
 
