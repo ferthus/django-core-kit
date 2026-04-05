@@ -1,0 +1,33 @@
+services:
+  app:
+    build:
+      context: .
+      target: dev
+    volumes:
+      - .:/app
+      - /app/.venv # keeps container's .venv Prevents host mount from overwriting it.
+    ports:
+      - "8000:8000"
+    env_file:
+      - .config_project/environ/dev/.env
+    depends_on:
+      db:
+        condition: service_healthy
+    command: /app/.venv/bin/python manage.py runserver 0.0.0.0:8000
+
+  db:
+    image: postgres:16
+    container_name: postgres_db
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+    env_file:
+      - .config_project/environ/dev/.env.db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - .config_project/docker/postgres/init/:/docker-entrypoint-initdb.d
+
+volumes:
+  postgres_data:
