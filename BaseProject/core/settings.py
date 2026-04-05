@@ -26,11 +26,10 @@ class BaseSettings:
 
     def __init__(self, *args, **kwargs):
         # Main Path
-        self.AWS_ACCESS_KEY_ID = None
-        self.AWS_SECRET_ACCESS_KEY = None
-        self.AWS_SECRET_NAME = None
-        self.AWS_REGION_NAME = None
         self.BASE_DIR = Path(__file__).resolve().parent.parent.parent
+        # default values for media and static
+        self.STATIC_ROOT = self.BASE_DIR / '.static'
+        self.MEDIA_ROOT = self.BASE_DIR / '.media'
 
         self.env = environ.Env() # instance the environ object and read from user environment variables.
         self.DJANGO_SECRETS_BACKEND = self.env.str('DJANGO_SECRETS_BACKEND')
@@ -396,30 +395,34 @@ class BaseSettings:
                     value = value.fget(self)
                 setattr(module, member, value)
 
-    def load_env_aws(self):
+    def _load_env_aws(self):
         import boto3
         from botocore.exceptions import ClientError
 
-        self.AWS_ACCESS_KEY_ID = self.env.str('AWS_ACCESS_KEY_ID')
-        self.AWS_SECRET_ACCESS_KEY = self.env.str('AWS_SECRET_ACCESS_KEY')
-        self.AWS_SECRET_NAME = self.env.str('AWS_SECRET_NAME')
-        self.AWS_REGION_NAME = self.env.str('AWS_REGION_NAME')
+        aws_env = {
+            "AWS_ACCESS_KEY_ID": self.env.str('AWS_ACCESS_KEY_ID'),
+            "AWS_SECRET_ACCESS_KEY": self.env.str('AWS_SECRET_ACCESS_KEY'),
+            "AWS_SECRET_NAME": self.env.str('AWS_SECRET_NAME'),
+            "AWS_REGION_NAME": self.env.str('AWS_REGION_NAME')
+        }
 
         session = boto3.session.Session()
         client = session.client(
             service_name="secretsmanager",
-            region_name=self.AWS_REGION_NAME,
-            aws_access_key_id=self.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=self.AWS_SECRET_ACCESS_KEY,
+            region_name=aws_env['AWS_REGION_NAME'],
+            aws_access_key_id=aws_env['AWS_ACCESS_KEY_ID'],
+            aws_secret_access_key=aws_env['AWS_SECRET_ACCESS_KEY']
         )
         try:
             get_secret_value_response = client.get_secret_value(
-                SecretId=self.AWS_SECRET_NAME
+                SecretId=aws_env['AWS_SECRET_NAME']
             )
         except ClientError as e:
             raise e
 
         secrets = get_secret_value_response['SecretString']
         variables = json.loads(secrets)
+        variables |= aws_env
+
         for key, value in variables.items():
             os.environ[key] = str(value)
