@@ -37,7 +37,7 @@ class BaseSettings:
         self.DJANGO_STORAGE_BACKEND = self.env.str('DJANGO_STORAGE_BACKEND')
 
         if self.DJANGO_SECRETS_BACKEND == 'aws':
-            self.load_env_aws()
+            self._load_env_aws()
 
         self.AUTH_USER_MODEL = self.env.str('AUTH_USER_MODEL', 'core_user.User')
         self.SECRET_KEY = self.env.str('SECRET_KEY')
@@ -59,6 +59,9 @@ class BaseSettings:
         for _key, _val in self.env.email_url().items():
             setattr(self, _key, _val)
 
+        # storage
+        self._configure_storage()
+
         self.FIXTURE_DIRS = [self.BASE_DIR / '.config_project/DB_Fixtures']
         self.MIDDLEWARE = [
             'django.middleware.security.SecurityMiddleware',
@@ -74,12 +77,6 @@ class BaseSettings:
             "django_htmx.middleware.HtmxMiddleware",
             # 'corsheaders.middleware.CorsMiddleware',
         ]
-
-        self.STATIC_URL = '/static/'
-        self.STATIC_ROOT = self.BASE_DIR / '.static'
-
-        self.MEDIA_URL = '/media/'
-        self.MEDIA_ROOT = self.BASE_DIR / '.media'
 
         self.STATICFILES_DIRS = [
             self.BASE_DIR / 'BaseProject/static',
@@ -334,6 +331,54 @@ class BaseSettings:
     def LOGIN_REDIRECT_URL(self): # noqa
         login_redirect_url = self.env("LOGIN_REDIRECT_URL")
         return login_redirect_url
+
+    def _configure_storage(self):
+        if self.DJANGO_STORAGE_BACKEND == 'aws':
+            config = self._s3_storage()
+        else:
+            config = self._local_storage()
+
+        for key, value in config.items():
+            setattr(self, key, value)
+
+    def _s3_storage(self):
+        _aws_static_location = 'static'
+        _aws_media_location = 'media'
+        _bucket_name = self.env.str('AWS_BUCKET_NAME')
+        return {
+            "AWS_STATIC_LOCATION": _aws_static_location,
+            "AWS_MEDIA_LOCATION": _aws_media_location,
+            "AWS_S3_OBJECT_PARAMETERS": {
+                'CacheControl': 'max-age=86400',
+            },
+            "AWS_STORAGE_BUCKET_NAME": _bucket_name,
+            "AWS_DEFAULT_ACL": None,
+            "AWS_S3_MAX_AGE_SECONDS": 3600,
+            "AWS_QUERYSTRING_AUTH": True,
+            "STATIC_URL": f'https://{_bucket_name}.s3.amazonaws.com/{_aws_static_location}/',
+            "MEDIA_URL": f'https://{_bucket_name}.s3.amazonaws.com/{_aws_media_location}/',
+            # COMPRESS_STORAGE = self.STATICFILES_STORAGE
+            "STORAGES": {
+                "default": {
+                    "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+                    "OPTIONS": {
+                        "location": _aws_media_location,
+                    },
+                },
+                "staticfiles": {
+                    "BACKEND": "storages.backends.s3boto3.S3StaticStorage",
+                    "OPTIONS": {
+                        "location": _aws_static_location,
+                    },
+                },
+            }
+        }
+
+    def _local_storage(self):
+        return {
+            "STATIC_URL": '/static/',
+            "MEDIA_URL": '/media/'
+        }
 
     @classmethod
     def load_settings(cls, module_name):
