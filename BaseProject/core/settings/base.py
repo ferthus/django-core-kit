@@ -19,6 +19,8 @@ import environ
 from pathlib import Path
 
 from django.utils.translation import gettext_lazy as _
+from .components.drf import DRFConfig
+from BaseProject.core.utilities.load_kit_settings import file_name, load_kit_config, validate_components
 
 
 class BaseSettings:
@@ -26,22 +28,46 @@ class BaseSettings:
 
     def __init__(self, *args, **kwargs):
         # Main Path
-        self.BASE_DIR = Path(__file__).resolve().parent.parent.parent
-        # default values for media and static
-        self.STATIC_ROOT = self.BASE_DIR / '.static'
-        self.MEDIA_ROOT = self.BASE_DIR / '.media'
+        self.BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
+        # load components
+        kit = load_kit_config(self.BASE_DIR / f'.config_project/{file_name}')
+        validate_components(kit['components'])
+        self.DJANGO_SECRETS_BACKEND = kit['secrets_backend']
+        self.DJANGO_STORAGE_BACKEND = kit['storage_backend']
+
+        # load environments from Docker Compose
         self.env = environ.Env() # instance the environ object and read from user environment variables.
-        self.DJANGO_SECRETS_BACKEND = self.env.str('DJANGO_SECRETS_BACKEND')
-        self.DJANGO_STORAGE_BACKEND = self.env.str('DJANGO_STORAGE_BACKEND')
+        # secrets
+        self._load_env_aws()
 
-        if self.DJANGO_SECRETS_BACKEND == 'aws':
-            self._load_env_aws()
+        self.INSTALLED_APPS = [
+            # django apps
+            'django.contrib.admin',
+            'django.contrib.auth',
+            'django.contrib.contenttypes',
+            'django.contrib.sessions',
+            'django.contrib.messages',
+            'django.contrib.staticfiles',
+            'django.contrib.humanize',
+            'django.contrib.sites',
+            # Project apps
+            'BaseProject.apps.admin_portal',
+            'BaseProject.apps.core_user'
+        ]
 
+        # storage
+        self._configure_storage()
+        # drf
+        self._apply(DRFConfig, kit['components'].get('drf', {}))
+
+        # default values for media and static
         self.AUTH_USER_MODEL = self.env.str('AUTH_USER_MODEL', 'core_user.User')
         self.SECRET_KEY = self.env.str('SECRET_KEY')
         self.SITE_ID = self.env.int('SITE_ID', 1)
         self.ROOT_URLCONF = 'BaseProject.core.urls'
+        self.STATIC_ROOT = self.BASE_DIR / '.static'
+        self.MEDIA_ROOT = self.BASE_DIR / '.media'
 
         # Debug settings
         self.DEBUG = self.env.bool('DEBUG')
@@ -52,14 +78,11 @@ class BaseSettings:
         self.ADMIN_SITE_HEADER = self.env.str('ADMIN_SITE_HEADER', "BaseProject")
         self.ADMIN_SITE_TITLE = self.env.str('ADMIN_SITE_TITLE', "Base Project")
         self.ADMIN_SITE_INDEX_TITLE = self.env.str('ADMIN_SITE_INDEX_TITLE', "Base Project Index")
-        self.SITE_URL = '/'  # ToDo => Cambiar por reverse resolution url
+        self.SITE_URL = '/'
 
         # settings EMAIL
         for _key, _val in self.env.email_url().items():
             setattr(self, _key, _val)
-
-        # storage
-        self._configure_storage()
 
         self.FIXTURE_DIRS = [self.BASE_DIR / '.config_project/DB_Fixtures']
         self.MIDDLEWARE = [
@@ -72,7 +95,7 @@ class BaseSettings:
             'django.contrib.auth.middleware.AuthenticationMiddleware',
             'django.contrib.messages.middleware.MessageMiddleware',
             'django.middleware.clickjacking.XFrameOptionsMiddleware',
-            'allauth.account.middleware.AccountMiddleware',
+            # 'allauth.account.middleware.AccountMiddleware',
             "django_htmx.middleware.HtmxMiddleware",
             # 'corsheaders.middleware.CorsMiddleware',
         ]
@@ -115,25 +138,6 @@ class BaseSettings:
 
         self.LOGIN_URL = 'account_login'
         self.ACCOUNT_LOGOUT_REDIRECT_URL = 'account_login'
-
-        self.REST_FRAMEWORK = {
-            'DEFAULT_AUTHENTICATION_CLASSES': (
-                'rest_framework.authentication.TokenAuthentication',
-                'rest_framework.authentication.BasicAuthentication',
-                'rest_framework.authentication.SessionAuthentication',
-            ),
-            'DEFAULT_PERMISSION_CLASSES': [
-                'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
-            ],
-            'DEFAULT_THROTTLE_CLASSES': [
-                'rest_framework.throttling.AnonRateThrottle',
-                'rest_framework.throttling.UserRateThrottle',
-            ],
-            'DEFAULT_THROTTLE_RATES': {
-                'anon': '300/minute',
-                'user': '500/minute',
-            }
-        }
 
         self.TIME_ZONE = self.env.str('TIME_ZONE','America/Mexico_City')
         self.USE_TZ = self.env.bool('USE_TZ', True)
@@ -250,6 +254,13 @@ class BaseSettings:
             },
         }
 
+    def _apply(self, component_cls, options: dict):
+        config = component_cls(options).get_settings(self.env)
+        for key, value in config.items():
+            if key == "INSTALLED_APPS_EXTRA":
+                self.INSTALLED_APPS += value
+            else:
+                setattr(self, key, value)
 
     @property
     def ADMINS(self):  # noqa
@@ -261,40 +272,7 @@ class BaseSettings:
         managers_emails = self.env.str('MANAGERS', '[[]]')
         return list(email for email in json.loads(managers_emails))
 
-    # Application Classes
-    @property
-    def INSTALLED_APPS(self):  # noqa
-        apps = [
-            # django apps
-            'django.contrib.admin',
-            'django.contrib.auth',
-            'django.contrib.contenttypes',
-            'django.contrib.sessions',
-            'django.contrib.messages',
-            'django.contrib.staticfiles',
-            'django.contrib.humanize',
-            'django.contrib.sites',
-            # Third party apps
-            # 'phonenumber_field',
-            # 'django_crontab',
-            # 'rest_framework',
-            # 'rest_framework.authtoken',
-            # 'django_filters',
-            # 'django_redis',
-            # 'widget_tweaks',
-            'allauth',
-            'allauth.account',
-            # 'allauth.socialaccount',
-            "django_tables2",
-            "django_filters",
-            "django_htmx",
-            # 'django_celery_beat',
-            # 'taggit',
-            # Project apps
-            'BaseProject.apps.admin_portal',
-            'BaseProject.apps.core_user'
-        ]
-        return apps
+
 
     @property
     def DATABASES(self):  # noqa
@@ -304,7 +282,6 @@ class BaseSettings:
             _cache = _caches[_key]
             _configuration[_key] = {}
             _configuration[_key].update(self.env.db_url_config(_cache['url']))
-        print(_configuration)
         return _configuration
 
     @property
@@ -396,6 +373,9 @@ class BaseSettings:
                 setattr(module, member, value)
 
     def _load_env_aws(self):
+        if self.DJANGO_SECRETS_BACKEND != 'aws':
+            return
+
         import boto3
         from botocore.exceptions import ClientError
 

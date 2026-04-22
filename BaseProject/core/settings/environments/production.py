@@ -4,15 +4,8 @@ from .base import BaseSettings
 
 
 class ProdSettings(BaseSettings):
-
     """Settings for production | Don't Play"""
-    print("Production settings")
     DEBUG = False
-
-    @property
-    def INSTALLED_APPS(self):  # noqa
-        apps = super().INSTALLED_APPS
-        return apps
 
     @property
     def LOGGING(self):  # noqa - avoid pep8 N802
