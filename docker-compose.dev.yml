@@ -9,7 +9,7 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - .config_project/environ/dev/.env
+      - .docker/environ/dev/.env
     depends_on:
       db:
         condition: service_healthy
@@ -24,10 +24,10 @@ services:
       timeout: 5s
       retries: 5
     env_file:
-      - .config_project/environ/dev/.env.db
+      - .docker/environ/dev/.env.db
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - .config_project/docker/postgres/init/:/docker-entrypoint-initdb.d
+      - .docker/postgres/init/:/docker-entrypoint-initdb.d
 
 volumes:
   postgres_data:
