@@ -35,13 +35,14 @@ class DRFConfig:
 
         if "jwt" in self.options["auth"]:
             drf_config["INSTALLED_APPS_EXTRA"].append(
-                "rest_framework_simplejwt.token_blacklist"
+                "rest_framework_simplejwt"
             )
             drf_config["SIMPLE_JWT"] = JwtConf.get_settings(env)
 
         if "token" in self.options["auth"]:
             drf_config["INSTALLED_APPS_EXTRA"].append("rest_framework.authtoken")
 
+        print(drf_config)
         return drf_config
 
 
@@ -56,6 +57,7 @@ class JwtConf:
             "JWT_BLACKLIST_AFTER_ROTATION"),
         "ALGORITHM": lambda env: env.str("JWT_ALGORITHM"),
         "SIGNING_KEY": lambda env: env.str("JWT_SIGNING_KEY"),
+        "AUTH_COOKIE_HTTP_ONLY": lambda env: env.str("AUTH_COOKIE_HTTP_ONLY", True)
     }
 
     @staticmethod
