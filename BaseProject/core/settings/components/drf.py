@@ -14,8 +14,8 @@ AUTH_BACKENDS = {
 
 
 class DRFConfig:
-    def __init__(self, options: dict = {}):
-        self.options = {**DEFAULTS, **options}
+    def __init__(self, options: dict = None):
+        self.options = {**DEFAULTS, **(options or {})}
 
     def get_settings(self, env: Env) -> dict:
         drf_config = {
@@ -42,7 +42,6 @@ class DRFConfig:
         if "token" in self.options["auth"]:
             drf_config["INSTALLED_APPS_EXTRA"].append("rest_framework.authtoken")
 
-        print(drf_config)
         return drf_config
 
 
