@@ -39,7 +39,15 @@ class BaseSettings:
         # load environments from Docker Compose
         self.env = environ.Env() # instance the environ object and read from user environment variables.
         # secrets
-        self._load_env_aws()
+        if self.DJANGO_SECRETS_BACKEND == 'aws':
+            from .loaders.aws import SecretsConfig
+            secrets = SecretsConfig({
+                "AWS_REGION_NAME": self.env.str("AWS_REGION_NAME"),
+                "AWS_SECRET_NAME": self.env.str("AWS_SECRET_NAME"),
+                "AWS_ACCESS_KEY_ID": self.env.str("AWS_ACCESS_KEY_ID"),
+                "AWS_SECRET_ACCESS_KEY": self.env.str("AWS_SECRET_ACCESS_KEY")
+            })
+            secrets.load_env()
 
         self.INSTALLED_APPS = [
             # django apps
@@ -57,7 +65,13 @@ class BaseSettings:
         ]
 
         # storage
-        self._configure_storage()
+        if self.DJANGO_STORAGE_BACKEND == 'aws':
+            from .components.s3 import S3Config
+            self._apply(S3Config, {})
+        else:
+            self.STATIC_URL = self.env.str('STATIC_URL', '/static/')
+            self.MEDIA_URL = self.env.str('MEDIA_URL', '/media/')
+
         # drf
         self._apply(DRFConfig, kit['components'].get('drf', {}))
 
@@ -272,8 +286,6 @@ class BaseSettings:
         managers_emails = self.env.str('MANAGERS', '[[]]')
         return list(email for email in json.loads(managers_emails))
 
-
-
     @property
     def DATABASES(self):  # noqa
         _configuration = {}
@@ -308,54 +320,6 @@ class BaseSettings:
         login_redirect_url = self.env("LOGIN_REDIRECT_URL")
         return login_redirect_url
 
-    def _configure_storage(self):
-        if self.DJANGO_STORAGE_BACKEND == 'aws':
-            config = self._s3_storage()
-        else:
-            config = self._local_storage()
-
-        for key, value in config.items():
-            setattr(self, key, value)
-
-    def _s3_storage(self):
-        _aws_static_location = 'static'
-        _aws_media_location = 'media'
-        _bucket_name = self.env.str('AWS_BUCKET_NAME')
-        return {
-            "AWS_STATIC_LOCATION": _aws_static_location,
-            "AWS_MEDIA_LOCATION": _aws_media_location,
-            "AWS_S3_OBJECT_PARAMETERS": {
-                'CacheControl': 'max-age=86400',
-            },
-            "AWS_STORAGE_BUCKET_NAME": _bucket_name,
-            "AWS_DEFAULT_ACL": None,
-            "AWS_S3_MAX_AGE_SECONDS": 3600,
-            "AWS_QUERYSTRING_AUTH": True,
-            "STATIC_URL": f'https://{_bucket_name}.s3.amazonaws.com/{_aws_static_location}/',
-            "MEDIA_URL": f'https://{_bucket_name}.s3.amazonaws.com/{_aws_media_location}/',
-            # COMPRESS_STORAGE = self.STATICFILES_STORAGE
-            "STORAGES": {
-                "default": {
-                    "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-                    "OPTIONS": {
-                        "location": _aws_media_location,
-                    },
-                },
-                "staticfiles": {
-                    "BACKEND": "storages.backends.s3boto3.S3StaticStorage",
-                    "OPTIONS": {
-                        "location": _aws_static_location,
-                    },
-                },
-            }
-        }
-
-    def _local_storage(self):
-        return {
-            "STATIC_URL": '/static/',
-            "MEDIA_URL": '/media/'
-        }
-
     @classmethod
     def load_settings(cls, module_name):
         """
@@ -371,38 +335,3 @@ class BaseSettings:
                 if isinstance(value, property):
                     value = value.fget(self)
                 setattr(module, member, value)
-
-    def _load_env_aws(self):
-        if self.DJANGO_SECRETS_BACKEND != 'aws':
-            return
-
-        import boto3
-        from botocore.exceptions import ClientError
-
-        aws_env = {
-            "AWS_ACCESS_KEY_ID": self.env.str('AWS_ACCESS_KEY_ID'),
-            "AWS_SECRET_ACCESS_KEY": self.env.str('AWS_SECRET_ACCESS_KEY'),
-            "AWS_SECRET_NAME": self.env.str('AWS_SECRET_NAME'),
-            "AWS_REGION_NAME": self.env.str('AWS_REGION_NAME')
-        }
-
-        session = boto3.session.Session()
-        client = session.client(
-            service_name="secretsmanager",
-            region_name=aws_env['AWS_REGION_NAME'],
-            aws_access_key_id=aws_env['AWS_ACCESS_KEY_ID'],
-            aws_secret_access_key=aws_env['AWS_SECRET_ACCESS_KEY']
-        )
-        try:
-            get_secret_value_response = client.get_secret_value(
-                SecretId=aws_env['AWS_SECRET_NAME']
-            )
-        except ClientError as e:
-            raise e
-
-        secrets = get_secret_value_response['SecretString']
-        variables = json.loads(secrets)
-        variables |= aws_env
-
-        for key, value in variables.items():
-            os.environ[key] = str(value)
